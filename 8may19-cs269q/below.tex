@@ -1,0 +1,14 @@
+\section{Programs Below Quil}
+
+I want to end my section by talking a little bit about what happens to Quil code when it's about to be run. While it may seem like so, Quil isn't \emph{quite} an assembly language, even if it's written for the ISA of the physical device. As such, there's one more level of compilation that's very close to traditional assembling.
+
+Superconducting qubits, at the end of the day, operate off of microwave pulses and electrical currents. So any code written needs to turn into a sequence of pulse-firings or current-drives. These are controlled by a plurality of processors which can---and do---operate on the QPU in parallel.
+
+The waveforms are generally not as sophisticated as one might think. An $\RX(\pi/2)$ gate corresponds to a waveform that looks something like $\sin(\omega t)e^{t^2}$, where $\omega$ is a frequency in the 5~GHz range. The Quil code
+\begin{quil}
+RX(pi/2) 3
+RX(pi/2) 5
+\end{quil}
+would assemble into two of these sinusoidal pulses that are fired synchronously at qubits $3$ and $5$.
+
+As a rule of thumb, one-qubit gates usually have a duration of around 20 to 50~ns, while two-qubit gates have a duration of around 80 to 200~ns. To me, it is very remarkable that these gates-measured-in-nanoseconds can effect change in a quantum state that cannot be stored on my laptop feasibly.

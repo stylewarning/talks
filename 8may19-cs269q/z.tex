@@ -1,0 +1,318 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{The Quantum Abstract Machine}
+Fundamentally, quantum computers are driven by a physical process. For instance, for
+superconducting qubits, one effects change by firing microwave pulses at microscopic
+circuits. Each pulse can be seen as a discrete change in the system. Quantum computing
+systems of course have other elements to them, like a classical processor to drive the
+whole apparatus. Since all of this corresponds to the physical reality of the machine,
+we find it prudent to provide an abstract model of this for study. This model is called
+the quantum abstract machine, and was defined in its first form in \cite{quilpaper}.
+
+Formally, a quantum abstract machine---or QAM---has six parts:
+\begin{description}
+\item[Quantum State $\ket{\Psi}$] A quantum state of some number of qubits.
+\item[Classical State $C$] A classical state of some number of bits. Chunks of classical memory are usually given names, like $\mathtt{ro}$ for a register of read-out bits. We'll talk about this more later.
+\item[Gates $G$, $G'$] A fixed set of static gates $G$, and a fixed set of parametric gates $G'$. The Hadamard gate $\texttt{H}$ is an example of a fixed gate, and $\mathtt{RX}(\theta)$ is an example of a parametric gate.
+\item[Program $P$] A program, which is a fixed sequence of instructions. These instructions have a special syntax, called Quil, which we will discuss later.
+\item[Program Counter $\kappa$] A program counter, which tells us which instruction to execute next in the program.
+\end{description}
+
+Together, these form a six-tuple $(\ket{\Psi}, C, G, G', P, \kappa)$ and it represents the state of a QAM. The QAM can be segmented into three parts:
+\begin{itemize}
+\item The \emph{state} part, which is $(\ket{\Psi}, C, \kappa)$. These are the bits that change throughout the execution of the program.
+\item The \emph{instruction set architecture} or \emph{ISA}, which is $(G, G')$. These dictate both the structure \emph{and} the quantum operations of the machine.
+\item The \emph{program}, which is just $P$. We will sometimes write out the instructions of the program in angle brackets. For example, a program that executes an $\PauliX$--gate on qubit $3$ and a $\PauliZ$--gate on qubit $2$ would be written $\langle\PauliX_3,\PauliZ_2,\Halt{}\rangle$.
+\end{itemize}
+As the program is run instruction-by-instruction, the state changes. For example, if $\PauliX_3$---an X--gate on qubit $3$---is a part of $G$, then that instruction will invoke a transition
+\begin{displaymath}
+(\ket{\Psi}, C, \kappa) \to (\PauliX_0\ket{\Psi}, C, \kappa+1).
+\end{displaymath}
+In this case, our quantum state changed, and our program counter bumped up by one. Other instructions affect other parts of the state, sometimes all three, as with measurement.
+
+This model of thinking about computation---the idea of a series of discrete state transitions---is very reminiscent of the Turing machine, and constitutes a so-called \emph{operational understanding} of quantum computation. As such, it's the foundation for how we think about programming the machine. Operational semantics give a very direct intuition for how programs are written and run, but operational semantics sometimes makes it difficult to prove theorems of interest to programming language theorists. That's okay though, since it's possible and in fact not too hard to develop a correspondence between an operational semantics and something else like denotational semantics.
+
+As a matter of vocabulary, a QAM that's simulated by a classical processor is called a \emph{quantum virtual machine} or \emph{QVM}. A QAM that's simulated by a quantum processor is called a \emph{quantum processing unit} or \emph{QPU}.
+
+Anyway, let's go into each element of the QAM with a little bit more detail.
+
+\subsection{The Quantum State}
+The quantum state $\ket{\Psi}$ represents the state of the qubits in a QAM. I won't review \emph{all} of the details of the quantum state, which surely has been drilled into your heads by now, but I will make a few salient points, especially in terms of conventions.
+
+The distinguished states of the $k$\textsuperscript{th} qubit are written $\Zero_k$ and $\One_k$. We write the little subscripts because they are in fact distinguished in a physical sense: A physical qubit $5$ doesn't have precisely the same excited state energy as that of another physical qubit, say qubit $7$. Put plainly, $\ket{1}_5\neq\ket{1}_7$.
+
+In isolation, the $k$\textsuperscript{th} qubit occupies a two-dimensional complex Hilbert space, written 
+\begin{equation*}
+    B_k := \Span_{\CC}\{\Zero_k,\One_k\}.
+\end{equation*}
+When the qubits interact, the states occupy a larger Hilbert space. For $n$ qubits, we write
+\begin{equation*}
+    H := \sideset{}{'}\bigotimes_{k=0}^{n-1} B_i = B_{n-1} \otimes B_{n-2} \otimes \cdots \otimes B_1 \otimes B_0.
+\end{equation*}
+We write $\sideset{}{'}\bigotimes$ with a prime to indicate the tensor product is built on the left. The reason for this is so that we have a nice way to write out the computational basis. Notice how much of a pain it is to write out this basis element of five qubits:
+\begin{displaymath}
+\Zero_4 \otimes \One_3 \otimes \Zero_2 \otimes \Zero_1 \otimes \Zero_0.
+\end{displaymath}
+It's much easier to write $\ket{01000}$. Even better, if we write out the basis elements in lexicographic order
+\begin{displaymath}
+\ket{00000}, \ket{00001}, \ket{00010}, \ldots, \ket{11110}, \ket{11111};
+\end{displaymath}
+then the $k$\textsuperscript{th} element corresponds to the binary expansion of $k$. In fact, the state
+\begin{displaymath}
+\alpha_0\ket{00000} + \alpha_1\ket{00001} + \cdots + \alpha_{30}\ket{11110} + \alpha_{31}\ket{11111}
+\end{displaymath}
+is stored in a classical computer exactly as an array of complex numbers, as seen in fig.~\ref{fig:fiveq}.
+
+\begin{figure}
+    \centering
+    \begin{bytefield}{5}
+        \wordbox{1}{$\re \alpha_0$} & \wordbox{1}{$\im \alpha_0$}
+        & \wordbox{1}{$\re \alpha_1$} & \wordbox{1}{$\im \alpha_1$}
+        & \wordbox{1}{$\cdots$}
+        & \wordbox{1}{$\re \alpha_{31}$} & \wordbox{1}{$\im \alpha_{31}$}
+    \end{bytefield}
+    \caption{A $5$-qubit quantum state stored as an array. The real and imaginary parts are typically stored as 64-bit double-precision floats.}
+    \label{fig:fiveq}
+\end{figure}
+
+Gates also follow this ordering convention. The \CNOT{} gate acting on qubits $0$ and $1$, namely
+\begin{displaymath}
+\CNOT_{01} : B_1 \otimes B_0 \to B_1 \otimes B_0
+\end{displaymath}
+has the presentation as a matrix
+\begin{displaymath}
+\texttt{CNOT}_{01} :=
+\begin{pmatrix}
+0 & 1 & 0 & 0\\
+1 & 0 & 0 & 0\\
+0 & 0 & 1 & 0\\
+0 & 0 & 0 & 1
+\end{pmatrix},
+\end{displaymath}
+where qubit $1$ is the control qubit, and qubit $0$ is the target qubit. This doesn't look like the normal \CNOT{}-matrix because we've fixed our space and a consequent basis for that space. On the other hand, the operator $\CNOT_{10}$ on the same space has the usual presentation:
+\begin{displaymath}
+\texttt{CNOT}_{10} :=
+\begin{pmatrix}
+1 & 0 & 0 & 0\\
+0 & 1 & 0 & 0\\
+0 & 0 & 0 & 1\\
+0 & 0 & 1 & 0
+\end{pmatrix}.
+\end{displaymath}
+You should verify that both of these matrices respect what we mean by $\CNOT{}$ in our convention of space. This whole topic of ordering is delved into in \cite{shouts}.
+
+With all of this, we can write a quantum state $\ket{\Psi}$ of $n$ qubits as
+\begin{displaymath}
+\ket{\Psi} = \sum_{k=0}^{2^n-1} \alpha_k\ket{k},
+\end{displaymath}
+where $\ket{k}$ is to be understood as the $k$\textsuperscript{th} computational basis element.
+
+I promise that all of this isn't just mathematical nonsense; it's important for understanding what your programs are doing, and how to precisely read a quantum state as a list of amplitudes. I can't count the number of times folks at Rigetti---myself included---have stumbled in the wrong direction because we didn't have this ordering business sorted out.
+
+There's nothing more to say about states, except that the actual amplitudes of the state aren't typically directly accessible to you as a programmer. We will learn a bit later how we can change this state, with gates like $\texttt{CNOT}_{10}$.
+
+\subsection{Gates and the ISA}
+Physical quantum processors have physical constraints. For example, in superconducting qubit systems, if two physical qubits are not near one another, then it's generally not possible for them to interact in a single, discrete operation. So while we might have a quantum computer that supports the \CNOT{} gate, we aren't really being precise by saying that. Instead, we ought to say something like ``our computer supports a \CNOT{} gate between qubits $1$ and $0$, as well as between qubits $2$ and $1$.'' More exotic gates, such as the M{\o}lmer--S{\o}rensen gate\cite{molmer} can operate on more than two qubits simultaneously. This gate has the action of producing something like a GHZ-state:
+\begin{displaymath}
+\ket{0}^{\otimes n} \mapsto \frac{e^{i\phi_0}\ket{0}^{\otimes n} + e^{i\phi_1}\ket{1}^{\otimes n}}{\sqrt{2}}.
+\end{displaymath}
+
+The role of $G$ and $G'$ in the QAM is to define precisely what the machine supports. Because qubits can support operations, qubit pairs can support operations, qubit triplets etc., we formally consider the ISA of a quantum abstract machine to be a \emph{hyper-multigraph}. That is to say, the ISA is a set of vertices $V$ which represent the qubits, and a set of hyperedges containing:
+\begin{itemize}
+    \item A map $E_1$ from\footnote{The notation $\tbinom S n$ is the set of $n$-element subsets of $S$.} $\tbinom V 1 = V$ to a set of single-qubit gates,
+    \item A map $E_2$ from $\tbinom V 2$ to a set of two-qubit gates,
+    \item A map $E_3$ from $\tbinom V 3$ to a set of three-qubit gates,
+\end{itemize}
+and so on up to a map $E_n$ from $\tbinom V {\vert V\vert} = \{V\}$ to a set of $\vert V\vert$-qubit gates. We call $E_i$ a \emph{hyperedge of valence $i$}. As shorthand, we might write this graph as \[\left(V,\{E_1,\ldots,E_{\vert V\vert}\}\right).\] For superconducting qubits, the valence is usually limited to $2$, that is, we have both one- and two-qubit gates\footnote{This isn't strictly true for superconducting qubits, and is certainly not true for other qubit technologies like ion traps.}.
+
+The hyper-multigraph presentation of an ISA is useful for understanding at a glance what a quantum abstract machine can do, because it makes for drawing nice pictures\footnote{Sometimes we talk about the \emph{qubit graph}, which is a traditional graph whose vertices are qubits and whose edges represent the existence of \emph{any} two-qubit gate between them.}, but it's often useful to just bag everything together. In fact,
+\begin{equation}
+    G \cup G' = \bigcup_{i=1}^{\vert V\vert} \image E_i.
+\end{equation}
+The set $G$ is specifically the set of \emph{static gates}, linear operators $H\to H$. These often include the usual suspects, like Pauli gates, Hadamard, etc. The set $G'$ is specifically the set of parametric gates, families of linear operators parameterized by a set of real numbers. These often include rotation gates and $\mathtt{CPHASE}$.
+
+What's important to note---in the context of the specification of a QAM's ISA---is that there is no ``ordained'' \CNOT{} gate. There are only \CNOT{} gates that act on vertices of the qubit graph.
+
+\subsection{Classical Memory and Measurement}
+
+Formally, the classical memory $C$ is just a tuple of bits. This is very nice mathematically, but cumbersome as a programmer. As such, we can provide structure to $C$ by declaring memory. Memory can be partitioned into bits, octets, signed integers, and (approximations of!) real numbers. We can give such memory name using \verb|DECLARE| syntax.
+
+\begin{quil}
+DECLARE ro BIT[8]
+DECLARE mem OCTET[32]
+DECLARE theta REAL
+DECLARE count INTEGER
+\end{quil}
+
+This is a syntax for outlining the structure of a memory $C$ of $8+8\cdot 32+64+64=392$ bits, and we can always formalize it by way of a \emph{memory map}. For instance, suppose $C\in\{0,1\}^{392}$. If both \verb|INTEGER| and \verb|REAL| are 64-bits, then we might have the memory map:
+\begin{itemize}
+    \item $\texttt{ro}[i] = C_i$ for $0 \leq i < 8$,
+    \item $\texttt{mem}[i] = (C_{8i+8}, C_{8i+9}, \ldots, C_{8i+15})$ for $0\leq i < 32$,
+    \item $\texttt{theta} = (C_{264}, C_{265}, \ldots, C_{327})$, and
+    \item $\texttt{count} = (C_{328}, C_{329}, \ldots, C_{391})$.
+\end{itemize}
+
+From a formal perspective, this naming business isn't necessary. (That's why the QAM just has a $C$.) However, as a programmer, it's useful.
+
+Measurement is one kind of instruction in the QAM that affects both the quantum state and classical state, since the result of the measurement is stored. As quantum mechanics prescribes, it's non-deterministic. Suppose we perform a measurement on qubit $k$ and opt to store the resulting bit at $C_j$. This induces a projection $\pi\in\big\{\ket{0}_k\bra{0}_k,\ket{1}_k\bra{1}_k\big\}$ along with the storage of a bit $b\in\{0,1\}$. Our QAM's state transitions non-deterministically as
+\begin{displaymath}
+(\ket{\Psi}, C, \kappa) \to \left(\frac{\pi\ket{\Psi}}{\Vert\pi\ket{\Psi}\Vert}, C[C_j:=b], \kappa+1\right).
+\end{displaymath}
+When writing out the formal semantics of the QAM, the non-determinism is often expressed in terms of a more general concept called density operators, which I won't get into.
+
+In Quil syntax, the instruction is written \[\texttt{MEASURE~$k$~$C_j$}.\] We will look into more Quil syntax next.
+
+\subsection{Quil: A Quantum Instruction Language}
+We've talked an awful lot about the structure of a quantum abstract machine and what you can do with it, but we've only written down mathematical descriptions of these things, and not talked about a way to write concrete \emph{programs}. The purpose of Quil is to describe our program $P$---a sequence of state transitions of the QAM---with a concrete syntax. The syntax looks a lot like assembly, but is slightly higher level than that. The ``hello world'' of quantum computing is the construction and measurement of a Bell state. This is written:
+\begin{quil}
+DECLARE ro BIT[2]      # declare the existence of a 2-bit register in C
+H       0              # Hadamard on qubit 0
+CNOT    0 1            # CNOT with control 0 and target 1
+MEASURE 0 ro[0]        # measurement of qubit 0 into the first bit of ro
+MEASURE 1 ro[1]        # measurement of qubit 1 into the second bit of ro
+\end{quil}
+
+The whitespace is irrelevant, of course. As can be seen, excepting the \verb|DECLARE| directive, each line is an instruction. The instructions are precisely the elements of the sequence $P$. We would say this Quil code is \emph{native} on a QAM with $\{\Hadamard_0, \CNOT_{01}\}\subset G$.
+
+We can invoke parametric gates with syntax that you would expect:
+\begin{quil}
+DECLARE theta REAL
+RX(pi/2) 0
+RZ(theta) 1
+\end{quil}
+
+There's a host of standard gates, most of them with the familiar names: \verb|X|, \verb|H|, \verb|CNOT|, etc. But we can define new gates by writing out their matrix:
+\begin{quil}
+DEFGATE new-gate:
+    0, 1, 0, 0
+    1, 0, 0, 0
+    0, 0, 1, 0
+    0, 0, 0, 1
+\end{quil}
+This defines a sort of ``flipped \verb|CNOT|'', with the target and control swapped. We could of course accomplish this with the \verb|SWAP| gate.
+
+Quil has many language features. It contains a host of classical instructions like \verb|MOVE|, \verb|STORE|, and \verb|ADD|, all causing transitions of $C$, but we won't get into those. It also allows for general control flow, including loops and branches with the \verb|JUMP| and \verb|JUMP-WHEN| instructions. These are reasoned about as transitions of $\kappa$ and are very important for certain programs like active reset, but we also will not get into those.
+
+One special instruction, however, is \Halt{}, which is an instruction which does \emph{not} transition $\kappa\to\kappa+1$, in effect, freezing the state of the QAM.
+
+Mark will be speaking a bit later about how to write Quil using our Python library called pyQuil, but I'd like to shift gears a bit and talk about how we can be more expressive as programmers by introducing the notion of compilation.
+
+\section{Compilation}
+
+Compilation of quantum programs serves two critical roles. First, it allows us as programmers express programs with a broader set of primitives, since quantum computers expose only a limited set of operations. Second, compilation provides means for optimizing the program, generally making the program shorter or make use or more efficient operations.
+
+Optimizing compilers for \emph{classical} programs are merely a convenience. An optimized classical program may run in less time or consume less memory. This, in turn, means that I, the programmer, have to wait less, or use a less expensive computer, in order to accomplish the task I set out to do with the classical computer. The optimization (usually) does not affect the correctness or accuracy of the program.
+
+However, in the case of quantum programs, optimization serves a much more important role outside of providing convenience. While a quantum computer is running, it \emph{decoheres} due to natural effects, which causes the machine to produce incorrect results with higher probability over time. For superconducting qubit processors, there's an associated measure for this decoherence, called the $T_1$ and $T_2$ times. Roughly speaking, these times put a bound on the amount of time a program can run before it produces bad results more than $50\%$ of the time. Currently, $T_1$ times sit around $1$ to $100\,\mu\mathrm{s}$.
+
+I won't delve into the details as to \emph{why} this time limit exists, except to say one of the top areas of research is how to build machines that ever increase this limit. Since the development of the first superconducting qubits, this time has been improved exponentially, for a quantum-Moore's-like law.
+
+Anyway, a compiler has the role of optimizing your program, to potentially take a long program and make it shorter, giving the programmer more freedom and certainty that their program will run as best it can.
+
+\subsection{The Problem of Compilation}
+
+With the QAM formalism in hand, we can state the problem of compilation quite simply. First, let's introduce a function $\Run$ which takes a QAM and runs the program, producing a final QAM if the program has halted. For instance,
+\begin{displaymath}
+\Run (\Zero, \mathtt{0}, \{\PauliX_0\}, \emptyset, \langle \PauliX_0, \Halt\rangle, 0)
+=
+(\One, \mathtt{0}, \{\PauliX_0\}, \emptyset, \langle \PauliX_0,\Halt\rangle, 1).
+\end{displaymath}
+It of course may not be the case that a program terminates, in which case, the function $\Run$ isn't well defined.
+
+With this, it is easy to state the compilation problem:
+\begin{framed}
+\noindent \textbf{Compilation problem in plain English:} Given a QAM and a target gate set $(G, G')$, find a QAM with that gate set, and running the QAMs to completion gives equivalent classical and quantum states.
+\end{framed}
+\noindent A more mathematical statement would be:
+\begin{framed}
+\noindent \textbf{Compilation problem in mathematicians' English:} Let \[M_{\textrm{src}} := (\ket{\Psi}, C, G_{\textrm{src}}, G'_{\textrm{src}}, P_{\textrm{src}}, \kappa)\] and \[M_{\textrm{target}} := (\ket{\Psi}, C, G_{\textrm{target}}, G'_{\textrm{target}}, x, \kappa)\] both be QAMs. Also let
+\begin{displaymath}
+M^*_{\textrm{src}} := \Run M_{\textrm{src}}\qquad\text{and}\qquad
+M^*_{\textrm{target}} := \Run M_{\textrm{target}}
+\end{displaymath}
+whose quantum states are $\ket{\Psi^*_{\textrm{src}}}$ and $\ket{\Psi^*_{\textrm{target}}}$ respectively. Then for an arbitrary but fixed $\epsilon>0$, find a program $x$ such that the respective classical states are identical and
+\begin{displaymath}
+\left\Vert\ket{\Psi^*_{\textrm{src}}} - \ket{\Psi^*_{\textrm{target}}}\right\Vert < \epsilon.
+\end{displaymath}
+\end{framed}
+
+We might ask, is such an $x$ guaranteed to exist? Except in a small number of pathological cases, the answer is a resounding ``yes'', provided $M_{\textrm{src}}$ and $M_{\textrm{target}}$ are universal. In fact, provided the source and target QAMs have hyperedges of equal valence, the size of $x$ will grow as $(\log (1/\epsilon))^{3.9}$. This is a truly remarkable result known as the Solovay--Kitaev theorem.
+
+If we are to solve the compilation problem, what is involved exactly? There are a lot of approaches to compilation, but we will discuss three frequent tasks: decomposition, routing, and optimization.
+
+\subsection{Decomposition}
+In essense, \emph{all} compilation problems are decomposition problems; we wish to express objects in one semantic domain as objects with equivalent properties in another semantic domain. However, here, we mean something more specific. Returning back to the hyper-multigraph view of a QAM, it might be that our source QAM has hyperedges whose valence is larger than any of those in the target QAM. For instance, we might write a program which uses the Toffoli gate \[\textrm{CCNOT} := (I \otimes I) \oplus \CNOT{}\] whose valence is $3$, but our target QAM only has one- and two-qubit gates. The goal of decomposition is to re-express our high-valence gates in terms of products of gates whose valences match the target gate set. This isn't any sort of \emph{mathematical} requirement, but it makes solving the compilation problem a bit more principled.
+
+Fig.~\ref{fig:ccnot} shows an example decomposition of $\mathtt{CCNOT}_{012}$ into the set
+\begin{displaymath}
+\{\CZ_{\{01,02,12\}}, \RX(\pm\pi/2)_{\{0,1,2\}},\RZ(\pm\pi/4)_{\{0,1,2\}} \}.
+\end{displaymath}
+Note the all-to-all connectivity of the qubits.
+\begin{figure}[h]
+  \centering
+  \hspace{0.3cm}
+  \Qcircuit @C=0.6em {
+    %%%%%%
+    & \control \qw & \qw & {}  & {} & \qw & \qw & \qw
+    & \control \qw & \qw &
+    \qw & \qw & \control \qw & \qw & \control \qw & \gate{\TGate} &
+    \control \qw & \qw \\
+    %%%%%%
+    & \control \qw \qwx & \qw & {=} & & \qw & \control \qw & \qw &
+    \qw \qwx & \qw & \control \qw & \qw & \qw \qwx &
+    \gate{\TGate} & \targ \qwx & \gate{\TdGate} & \targ \qwx  & \qw \\
+    %%%%%%
+    & \targ \qw \qwx & \qw & {} & {} & \gate{H} & \targ \qwx &
+    \gate{\TdGate} & \targ \qwx & \gate{\TGate} & \targ \qwx &
+    \gate{\TdGate} & \targ \qwx & \gate{\TGate} & \gate{H} & \qw & \qw & \qw }
+  \caption{A decomposition of $\mathtt{CCNOT}$ into six \CNOT{} gates \cite{shende}.}
+  \label{fig:ccnot}
+\end{figure}
+
+Using this identity allows us to reduce just $\mathtt{CCNOT}$, but there are algorithms to decompose gates of general valence, including one from Solovay and Kitaev\cite{skalg}. These algorithms usually come at a great cost, however. In general, edges of high valence decompose into an exponential number of one- and two-qubit operators.
+
+Provided we've used a collection of identities and decomposition methods, we still aren't in a form which will generally respect a QAM of interest. We do have a program whose gates have the right target valences, but they're perhaps not gates that are available to us. This leads to the next problem of quantum compilation.
+
+\subsection{Routing}
+Given a program in a QAM with all-to-all connectivity, we wish to compile the program so it conforms to the given connectivity. This problem is relatively simple when the program has gates whose matrices are found in the edges---for one can often use a chain\footnote{More specfically, if one is compiling an operator $U_{pq}$ where there is no $p$--$q$ edge, then one can perform a series of $\SWAP{}$s on qubits $p$ and $q$ so that $U$ in effect operates on an edge that \emph{does} exist.} of \SWAP{} gates---but more difficult when they're not. Suppose our gate set of our target QAM is
+\begin{displaymath}
+G\cup G' = \{ \RX(\pm\pi/2)_{\{0,1,2\}}, \RZ(\theta)_{\{0,1,2\}}, \CNOT_{\{01, 12\}} \}.
+\end{displaymath}
+In our Toffoli gate example, there are two $\CNOT_{02}$ gates that need to be routed, and a couple Hadamard gates that need to be converted. The Hadamard gates are easy in this case:
+\begin{equation*}
+\Hadamard = \RZ(\pi/2)\RX(\pi/2)\RZ(\pi/2).
+\end{equation*}
+This formula needn't be seen as magic; it can be understood in general as an Euler decomposition, as with rotations in $\mathrm{SO}(3)$. Routing the \CNOT{} gate is also quite simple, though for different reasons, with the identity:
+\begin{equation*}
+    \CNOT_{02}=\CNOT_{12}\CNOT_{01}\CNOT_{12}\CNOT_{01}.
+\end{equation*}
+This identity can be used recursively for a longer-range \CNOT{}s.
+All of these identities, expansions, \SWAP{} gates, etc.\ usually lead to redundant and inefficient code. This is where optimization is helpful.
+
+\subsection{Optimization}
+There are many optimization techniques for quantum programs. We will just mention a few:
+\begin{itemize}
+    \item Allocating qubits so that gates run more favorably, due to either their connectivity to neighboring qubits, or due to the qubits' physical performance characteristics\cite{noisycomp}.
+    \item Collecting groups of instructions and searching for simple reducing identities, such as $\Hadamard \Hadamard=\mathtt{I}$, $\RX(\alpha)\RX(\beta)=\RX(\alpha+\beta)$, and the like.
+    \item Taking advantage of known quantum state preparations, so that e.g. when an operator is acting on an eigenstate, that operator can be eliminated, as with $Z$ and the $\Zero$ state.
+\end{itemize}
+
+Industrial-strength quantum optimizing compilers, such as quilc, contain all of these methods and more, arranged cleverly so that you can convert just about any QAM into a large collection of other QAMs, including all currently known superconducting architectures.
+
+\section{Programs Below Quil}
+
+I want to end my section by talking a little bit about what happens to Quil code when it's about to be run. As I said earlier, Quil isn't \emph{quite} an assembly language, even if it's written for to the ISA of the physical device. As such, there's one more level of compilation that's very close to traditional assembling.
+
+Superconducting qubits, at the end of the day, operate off of microwave pulses and currents. So any code written needs to turn into a sequence of pulse-firings or current-drives. These are controlled by a plurality of processors which can---and do---operate on the QPU in parallel.
+
+The waveforms are generally not as sophisticated as one might think. An $\RX(\pi/2)$ gate corresponds to a waveform that looks something like $\sin(\omega t)e^{t^2}$, where $\omega$ is a frequency in the 5~GHz range. The Quil code
+\begin{quil}
+RX(pi/2) 3
+RX(pi/2) 5
+\end{quil}
+would assemble into two of these sinusoidal pulses that are fired synchronously at qubits $3$ and $5$.
+
+As a rule of thumb, one-qubit gates usually have a duration of around 20 to 50~ns, while two-qubit gates have a duration of around 80 to 200~ns. To me, it is very remarkable that these gates-measured-in-nanoseconds can effect change in a quantum state that cannot be stored on my laptop feasibly.
+
+With that, I would like to hand it over to Mark, who will discuss how to actually use all of these tools to write software.

@@ -1,0 +1,93 @@
+\section{Compilation Heuristics}
+Unlike the Strong Compilation Problem, there is no algorithm that solves the Weak Compilation Problem wholesale. Instead, one uses a lot of heuristics, especially making use of the ISA in said heuristics. This is not too different with the state of affairs with usual classical compilers. A compiler like \verb|gcc| employs lots of different techniques to achieve compilation of C code to machine code.
+
+In general, a heuristic function is a function that takes us from one QAM to another. Solving the Weak Compilation Problem amounts to successively selecting heuristics until we reach the final QAM. It might look something like this:
+\begin{displaymath}
+M_{\textrm{source}}\xrightarrow{f_0} M_1 \xrightarrow{f_1} M_2 \xrightarrow{f_3}\cdots \xrightarrow{f_{n}} M_{\textrm{target}}.
+\end{displaymath}
+Each heuristic $f$ should be designed to either take us a few steps ``closer'' to our target QAM, or to bring us to a more efficient QAM. 
+
+\subsection{Decomposition}
+In essence, \emph{all} compilation problems are decomposition problems; we wish to express objects in one semantic domain as objects with equivalent properties in another semantic domain. However, here, we mean something more specific, decomposition in a ``truer'' sense of the word. In the hyper-multigraph view of a QAM, it might be that our source QAM has hyperedges whose valence is larger than any of those in the target QAM. For instance, we might write a program which uses the Toffoli gate \[\texttt{CCNOT} := (I \otimes I) \oplus \CNOT{}\] whose valence is $3$, but our target QAM only has one- and two-qubit gates. The goal of decomposition is to re-express our high-valence gates in terms of products of gates whose valences match the target gate set, without any other specific regard to the target gate set. The heuristic would have the effect of both transforming the program of the QAM, as well as the gate set. We move ``closer'' to our target QAM because we've removed gates from our gate set that perhaps don't exist in the target.
+
+There are many ways to perform these decompositions:
+\begin{enumerate}
+    \item Algebraic identities,
+    \item Matrix factorization methods, and
+    \item The Solovay--Kitaev algorithm.
+\end{enumerate}
+
+Algebraic identities are the simplest to explain, and often are extremely effective in efficient compilation\footnote{They are so effective that \texttt{quilc} has easy ways to write and incorporate them them.}. Fig.~\ref{fig:ccnot} shows an example decomposition of $\mathtt{CCNOT}_{012}$ into the set
+\begin{displaymath}
+\{\CZ_{\{01,02,12\}}, \RX(\pm\pi/2)_{\{0,1,2\}},\RZ(\pm\pi/4)_{\{0,1,2\}} \}.
+\end{displaymath}
+Note the all-to-all connectivity of the qubits.
+\begin{figure}[ht]
+  \centering
+  \hspace{0.3cm}
+  \Qcircuit @C=0.6em {
+    %%%%%%
+    & \control \qw & \qw & {}  & {} & \qw & \qw & \qw
+    & \control \qw & \qw &
+    \qw & \qw & \control \qw & \qw & \control \qw & \gate{\TGate} &
+    \control \qw & \qw \\
+    %%%%%%
+    & \control \qw \qwx & \qw & {=} & & \qw & \control \qw & \qw &
+    \qw \qwx & \qw & \control \qw & \qw & \qw \qwx &
+    \gate{\TGate} & \targ \qwx & \gate{\TdGate} & \targ \qwx  & \qw \\
+    %%%%%%
+    & \targ \qw \qwx & \qw & {} & {} & \gate{H} & \targ \qwx &
+    \gate{\TdGate} & \targ \qwx & \gate{\TGate} & \targ \qwx &
+    \gate{\TdGate} & \targ \qwx & \gate{\TGate} & \gate{H} & \qw & \qw & \qw }
+  \caption{A decomposition of $\mathtt{CCNOT}$ into six \CNOT{} gates \cite{shende}.}
+  \label{fig:ccnot}
+\end{figure}
+
+While this might not be a sufficient compilation for $\mathtt{CCNOT}$ for all target QAMs, it certainly moves us a step closer\footnote{We could formally state the transition as mapping a gate set $G$ to \[(G\setminus\{\texttt{CCNOT}_{012}\})\cup\{\CZ_{\{01,02,12\}}, \RX(\pm\pi/2)_{\{0,1,2\}},\RZ(\pm\pi/4)_{\{0,1,2\}} \},\] and mapping $\texttt{CCNOT}$s of the program to their respective expansions.} to a final compilation.
+
+Algebraic identities don't provide a general means for decomposition, however, so we rely on other methods. Matrix factorization methods are deterministic ways to recursively breaks larger matrices into smaller ones. In the one-qubit case, one might use Euler decomposition, which is a factorization of any unitary matrix into a sequence of three rotations. In its fundamental form, one has \[\RZ(\gamma)\RY(\beta)\RZ(\gamma).\] In our Toffoli decomposition, there are a couple Hadamard gates that need to be converted. The Hadamard gates have an Euler decomposition of
+\begin{equation*}
+\Hadamard = \RZ(\pi/2)\RX(\pi/2)\RZ(\pi/2).
+\end{equation*}
+This formula needn't be seen as magic; it can be understood perfectly in analog to rotations in $\mathrm{SO}(3)$. 
+
+For more qubits, one has more complex methods. The \emph{cosine-sine decomposition} takes a unitary $U\in SU(2^n)$ and computes
+\begin{displaymath}
+U = (L\oplus L')e^{iY\otimes\Delta}(R\oplus R').
+\end{displaymath}
+All $L,L',R,R',\Delta$ are matrices of half the dimension of $U$ and $\Delta$ is diagonal. Recursive application of this factorization to the left- and right-factors leads to an expression which ultimately can be written as two-qubit controlled rotations.
+
+An even simpler factorization, called \emph{quantum Shannon decomposition}, follows a similar line of thinking. Both of these methods and more are described in \cite{synth}. One should note that these methods compile $n$-qubit operators into $O(2^n)$ two-qubit operators.
+
+Provided we've used a collection of identities and decomposition methods, we still aren't in a form which will generally respect a QAM of interest. We do have a program whose gates have the right target valences, but they're perhaps not gates that are available to us. This leads to the next problem of quantum compilation.
+
+\subsection{Routing}
+Many QPUs have ISAs which are \emph{not} a hodgepodge of gates. Often, there's regularity in the ISA. Rigetti's chips, for example, support the same two-qubit gates across each valence-$2$ edge, and the same one-qubit gates on each qubit. This opens up a variety of compilation techniques, including routing.
+
+Given a program in a QAM with all-to-all connectivity, we wish to compile the program so it conforms to the given connectivity. This problem is relatively simple when the program has gates whose matrices are found in the edges---for one can often use a chain\footnote{More specifically, if one is compiling an operator $U_{pq}$ where there is no $p$--$q$ edge, then one can perform a series of $\SWAP{}$s on qubits $p$ and $q$ so that $U$ in effect operates on an edge that \emph{does} exist.} of \SWAP{} gates---but more difficult when they're not. Suppose our gate set of our target QAM is
+\begin{displaymath}
+G\cup G' = \{ \RX(\pm\pi/2)_{\{0,1,2\}}, \RZ(\theta)_{\{0,1,2\}}, \CNOT_{\{01, 12\}} \}.
+\end{displaymath}
+In the Toffoli gate example, there are two $\CNOT_{02}$ gates that need to be routed. Routing the \CNOT{} gate is also quite simple, though for different reasons, with the identity:
+\begin{equation*}
+    \CNOT_{02}=\CNOT_{12}\CNOT_{01}\CNOT_{12}\CNOT_{01}.
+\end{equation*}
+This identity can be used recursively for a longer-range \CNOT{}s.
+All of these identities, expansions, \SWAP{} gates, etc.\ usually lead to redundant and inefficient code. This is where optimization is helpful.
+
+\subsection{Optimization}
+There are many optimization techniques for quantum programs. We will just mention a few:
+\begin{itemize}
+    \item Allocating qubits so that gates run more favorably, due to either their connectivity to neighboring qubits.
+    \item Collecting groups of instructions and searching for simple reducing identities, such as $\Hadamard \Hadamard=\mathtt{I}$, $\RX(\alpha)\RX(\beta)=\RX(\alpha+\beta)$, and the like. These are the quantum equivalent of \emph{peephole optimizations}, but requires careful attention because of the large amount of instruction parallelism in quantum programming languages.
+    \item Taking advantage of known quantum state preparations, so that e.g. when an operator is acting on an eigenstate, that operator can be eliminated, as with $Z$ and the $\Zero$ state.
+\end{itemize}
+
+\subsection{Approximate Compilation}
+Quantum computers are imperfect, and one can take advantage of these imperfections to do a better job compiling. While I might want the quantum computer to execute a sequence of gates $U := \prod_i U_i$, it will in reality execute the gates with some amount of error $E_i$, giving us the ``actual'' execution \[V:=\prod_i (U_i + E_i).\] We can estimate the total error of the process with some selection of norm. If $\Vert E_i\Vert < \varepsilon_i$, then we can say that the total error we will incur will be bounded above by $r := \sum_i\varepsilon_i$.
+
+In some sense, this means that our ``target'' operation $U$ has a sort of radius $r$ in which we will invariably land. If we can supply a different sequence of gates that \emph{deliberately does not} calculate $U$, but instead calculates some other operator $U'$, so long as $U'$ has a smaller radius and is contained in $V$, we have done better. More specifically, if we can supply some alternative set of operations $U' := \prod_i U'_i$ such that its physical realization is \[V' := \prod (U'_i + E'_i),\] and if \[\Vert U - U'\Vert + \sum_i \Vert E'_i\Vert < r,\] then we have succeeded in optimizing $U$.
+
+This isn't some theoretical result, and an algorithm for doing so for two-qubit gates is described in \cite{noisycomp}. It is also implemented in \verb|quilc|, which can use measures of \emph{average gate fidelity} of the available gate set.
+
+Industrial-strength quantum optimizing compilers, such as \verb|quilc|, contain all of these methods and more, arranged cleverly so that you can convert just about any QAM into a large collection of other QAMs, including all currently known superconducting architectures.

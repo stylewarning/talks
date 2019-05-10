@@ -1,0 +1,85 @@
+\documentclass[12pt]{article}
+\usepackage{amsmath}
+\usepackage{fullpage}
+\usepackage{arev}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{braket}
+\usepackage{bytefield}
+\usepackage{qcircuit}
+
+\usepackage{minted}
+\usepackage{mdframed}
+\usepackage{mathtools}
+\usepackage[colorlinks=true,allcolors=black]{hyperref}
+%\usepackage{authblk}
+
+\surroundwithmdframed{minted}
+
+\newminted[quil]{text}{fontsize=\footnotesize}
+\newminted[python]{python}{fontsize=\footnotesize}
+\newminted[bash]{bash}{fontsize=\footnotesize}
+
+
+\newcommand{\RR}{\ensuremath{\mathbb{R}}}
+\newcommand{\CC}{\ensuremath{\mathbb{C}}}
+\DeclareMathOperator{\Span}{span}
+\DeclareMathOperator{\re}{Re}
+\DeclareMathOperator{\im}{Im}
+\DeclareMathOperator{\image}{image}
+\DeclareMathOperator{\Run}{\mathcal{R}}
+
+\newcommand{\Zero}{\ensuremath{\ket{0}}}
+\newcommand{\One}{\ensuremath{\ket{1}}}
+
+\newcommand{\RX}{\ensuremath{\mathtt{RX}}}
+\newcommand{\RY}{\ensuremath{\mathtt{RY}}}
+\newcommand{\RZ}{\ensuremath{\mathtt{RZ}}}
+\newcommand{\CZ}{\ensuremath{\mathtt{CZ}}}
+\newcommand{\TGate}{\ensuremath{\RZ(\tfrac{\pi}{4})}}
+\newcommand{\TdGate}{\ensuremath{\RZ(-\tfrac{\pi}{4})}}
+\newcommand{\CNOT}{\ensuremath{\mathtt{CNOT}}}
+\newcommand{\SWAP}{\ensuremath{\mathtt{SWAP}}}
+\newcommand{\Hadamard}{\ensuremath{\mathtt{H}}}
+\newcommand{\PauliX}{\ensuremath{\mathtt{X}}}
+\newcommand{\PauliY}{\ensuremath{\mathtt{Y}}}
+\newcommand{\PauliZ}{\ensuremath{\mathtt{Z}}}
+\newcommand{\Halt}{\ensuremath{\mathtt{HALT}}}
+
+\title{CS239 Lecture Notes (Week 6)}
+\author{%
+Robert S.\ Smith\footnote{email: \href{mailto:robert@rigetti.com}{\texttt{robert@rigetti.com}} (corresponding author)} \and
+Mark G.\ Skilbeck\footnote{email: \href{mailto:mark.skilbeck@rigetti.com}{\texttt{mark.skilbeck@rigetti.com}}}%
+}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\begin{center}
+\textit{These are notes for the 6 May 2019 lecture for UCLA's CS239 course. Questions, corrections, and comments are welcome!}
+\end{center}
+
+\tableofcontents
+
+% Robert's section
+\input{part1.tex}
+
+\newpage
+
+% Mark's section
+\input{part2.tex}
+
+\addcontentsline{toc}{section}{References}
+\begin{thebibliography}{1}
+  \bibitem{quilpaper} Robert S. Smith, Michael J. Curtis, William J. Zeng. {\em A Practical Quantum Instruction Set Architecture}. arXiv.org preprint. arXiv:1608.03355. 2016.
+  \bibitem{noisycomp} Eric C. Peterson, Gavin E. Crooks, Robert S. Smith. {\em Fixed-Depth Two-Qubit Circuits and the Monodromy Polytope} arXiv.org preprint. arXiv:1904.10541. 2019.
+  \bibitem{shouts} Robert S. Smith. {\em Someone Shouts $\ket{01000}$! Who's Excited?} arXiv.org preprint. arXiv:1711.02086. 2017.
+  \bibitem{skalg} Christopher M. Dawson, Michael A. Nielson. {\em The Solovay--Kitaev Algorithm}. Quantum Information and Computation. 2005. 
+  \bibitem{molmer} Klaus M{\o}lmer, Anders S{\o}rensen. {\em Multi-particle entanglement of hot trapped ions}. Physical Review Letters 82. 1999.
+  \bibitem{shende} Vivek V. Shende, Igor L. Markov. {\em On the CNOT-cost of TOFFOLI gates}. Quantum Information and Computation. 2009.
+  \bibitem{qft} Craig Gidney. {\it Building your own Quantum Fourier Transform}. Blog post: \url{https://algassert.com/quantum/2014/03/07/Building-your-own-Quantum-Fourier-Transform.html}. 2014. (Accessed 6 May 2019)
+\end{thebibliography}
+
+\end{document}

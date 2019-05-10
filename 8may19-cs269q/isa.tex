@@ -1,0 +1,59 @@
+\section{The Instruction Set Architecture}
+Physical quantum processors have physical constraints. For example, in superconducting qubit systems, if two physical qubits are not near one another, then it's generally not possible for them to interact in a single, discrete operation. So while we might have a quantum computer that supports the \CNOT{} gate, we aren't really being precise by saying that. Instead, we ought to say something like ``our computer supports a \CNOT{} gate between qubits $1$ and $0$, as well as between qubits $2$ and $1$.'' More exotic gates, such as the M{\o}lmer--S{\o}rensen gate\cite{molmer} can operate on more than two qubits simultaneously. This gate has the action of producing something like a GHZ-state:
+\begin{displaymath}
+\ket{0}^{\otimes n} \mapsto \frac{e^{i\phi_0}\ket{0}^{\otimes n} + e^{i\phi_1}\ket{1}^{\otimes n}}{\sqrt{2}}.
+\end{displaymath}
+
+The role of $G$ and $G'$ in the QAM is to define precisely what the machine supports. It turns out, ``what the machine supports'' also provides a certain discrete structure to that machine. This structure is called the instruction set architecture or ISA. Understanding the ISA gives rise to a topological understanding of the machine, and provides excellent supporting theory in the construction of data structures a compiler might use. Moreover, knowing the ISA makes formulating certain compilation questions a lot easier.
+
+Because qubits can support operations, qubit pairs can support operations, qubit triplets etc., we formally consider the ISA of a quantum abstract machine to be a \emph{hyper-multigraph} whose vertices are qubits and whose edges are possible operations on qubits. It is a \emph{hypergraph} because we consider generalizations of edges, called ``hyperedges'', which can connect multiple vertices. It is a \emph{multigraph} because there can be more than one hyperedge present between vertices.
+
+More specifically, we define an ISA as such:
+
+\begin{definition}[Instruction Set Architecture]
+An \emph{instruction set architecture} is a set of qubit labels $V$ called the \emph{vertices}, and a set of $\vert V\vert$ hyperedges which are maps\footnote{The notation $\tbinom S k$ is the set of $k$-element subsets of $S$.}
+\begin{displaymath}
+    E_k : \binom V k \to (\text{sets of $k$-qubit gates}).
+\end{displaymath}
+We call $E_k$ a \emph{hyperedge of valence $k$}. For a given set $S\subseteq V$, the gate $g\in E(S)$ if and only if $g$ acts on the qubits of $S$ non-trivially.
+\end{definition}
+In Quil, for $n$ qubits, the vertex labels are $V:=\{0,1\ldots,n-1\}$. So we fix that convention moving forward.
+
+As shorthand, we might write this graph as $(V,E)$ where $E$ is understood to be the $\vert V\vert$-tuple of hyperedges. For superconducting qubits, the valence is usually limited to $2$, that is, we only have one- and two-qubit gates\footnote{This isn't strictly true for superconducting qubits, and is certainly not true for other qubit technologies like ion traps.}.
+
+As a remark, for qubits $p$ and $q$, if $g_1\in E_1(\{p\})$ and $g_2\in E_1(\{q\})$, we generally do \emph{not} regard $g_1\otimes g_2\in E_2(\{p,q\})$, even though $g_1\otimes g_2$ is a perfectly synthesizable operation.
+
+The hyper-multigraph presentation of an ISA is useful for understanding at a glance what a quantum abstract machine can do. It's also nice because it makes for drawing nice pictures; sometimes we talk about the \emph{qubit graph}, which is a traditional graph whose vertices are qubit labels and whose edges represent the existence of \emph{any} two-qubit gate between them. When we \emph{don't} care so much about the topological structure, it's useful to just bag everything together. In fact, we recover the content of a QAM from an ISA:
+\begin{equation}
+    G \cup G' = \bigcup_{\substack{1\leq i\leq\vert V\vert\\\mathclap{H\in \image E_i}}}H.
+\end{equation}
+
+What's important to note---in the context of the specification of a QAM's ISA---is that there is no ``ordained'' \CNOT{} gate. There are only \CNOT{} gates that act on vertices. Of course I'm speaking of \CNOT{} as a placeholder for any usually named gate. Consider the following three-qubit ISA whose only hyperedge is
+\begin{displaymath}
+E_2 = 
+\begin{cases}
+    \{0,1\} \mapsto \{\CNOT_{10}\}\\
+    \{1,2\} \mapsto \{\CNOT_{12}\}.\\
+\end{cases}
+\end{displaymath}
+If qubits $0$, $1$, and $2$ are residents of the Hilbert spaces $B_0$, $B_1$, and $B_2$ respectively, then we can fix a space for our system and associated basis. The space we fix is \[B_2\otimes B_1\otimes B_0\] along with its usual basis, for reasons described in \cite{shouts}. We can then write the gates in terms of matrices. These would be
+\begin{align*}
+    \CNOT_{10} &= I_2 \otimes
+        \begin{pmatrix}
+          1 & 0 & 0 & 0\\
+          0 & 1 & 0 & 0\\
+          0 & 0 & 0 & 1\\
+          0 & 0 & 1 & 0
+        \end{pmatrix}\\
+    \CNOT_{12} &=
+        \begin{pmatrix}
+          0 & 1 & 0 & 0\\
+          1 & 0 & 0 & 0\\
+          0 & 0 & 1 & 0\\
+          0 & 0 & 0 & 1
+        \end{pmatrix}
+        \otimes I_0.
+\end{align*}
+We can see that in this view, the notion of there being ``a'' \CNOT{} gate melts away. As a corollary, this also means that $\CZ_{01}$ and $\CZ_{10}$ are perfectly indistinguishable\footnote{We will break away from this philosophy slightly when we talk about a compilation sub-problem called ``routing''.}.
+
+We've defined what compilation means, and we've provided a few ways to organize the structure of our gates, so we are prepared to attack some of the problems of compilation.

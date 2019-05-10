@@ -1,0 +1,83 @@
+\section{Compilation of Quantum Abstract Machines}
+In the third lecture, you learned about the \emph{quantum abstract machine}. This is the funny six-tuple of information:
+\begin{displaymath}
+(\ket{\Psi}, C, G, G', P, \kappa).
+\end{displaymath}
+Here, $\ket{\Psi}$ is our quantum state, $C$ is our classical state, $G$ is our set of static gates, $G'$ is our set of parametric gates, $P$ is a sequence of instructions comprising our program, and $\kappa$ is where we are in the program. Because only $(\ket{\Psi}, C, \kappa)$ change during the execution of $P$, we call that the \emph{state part} of the QAM. Suppose we have the following Quil program:
+\begin{quil}
+RZ(pi/2)  0
+RX(pi/2)  0
+RZ(-pi/2) 1
+RX(pi/2)  1
+CZ        0 1
+RZ(-pi/2) 0
+RX(-pi/2) 1
+RZ(pi/2)  1
+HALT
+\end{quil}
+Loaded onto one of Rigetti's freshly initialized eight-qubit Rigetti quantum computers, this would represent the following quantum abstract machine, which we will call $M$:
+\begin{align*}
+    \ket{\Psi} &= \ket{000000}\\
+    C          &= \texttt{000000}\\
+    G          &= \left\{\RX(\pm\tfrac\pi 2)_{\{0,1,2,3,4,5,6,7\}}, \CZ_{\{01,12,23,34,45,56,67,70\}}\right\}\\
+    G'         &= \{\theta\mapsto\RZ(\theta)_{\{0,1,2,3,4,5,6,7\}}\}\\
+    P          &= \left\langle
+                    \RZ(\tfrac\pi 2)_0,
+                    \RX(\tfrac\pi 2)_0,
+                    \RZ(-\tfrac\pi 2)_1,
+                    \RX(\tfrac\pi 2)_1
+                    \CZ_{01},
+                    \RZ(-\tfrac \pi 2)_0,
+                    \RX(-\tfrac \pi 2)_1,
+                    \RZ(\tfrac\pi 2)_1,
+                    \Halt{}
+                  \right\rangle\\
+    \kappa     &= 0.
+\end{align*}
+After undergoing the transition induced by $P_0=\RZ(\tfrac\pi 2)_0$, namely
+\begin{displaymath}
+(\ket{\Psi}, C, \kappa) \to \left(\RZ(\tfrac\pi 2)_0\ket{\Psi}, C, \kappa+1\right),
+\end{displaymath}
+we have
+\begin{align*}
+    \ket{\Psi} &= \left(\tfrac{1}{\sqrt{2}}-\tfrac{1}{\sqrt{2}}i\right)\ket{000000}\\
+    C          &= \texttt{000000}\\
+    G          &= \left\{\RX(\pm\tfrac\pi 2)_{\{0,1,2,3,4,5,6,7\}}, \CZ_{\{01,12,23,34,45,56,67,70\}}\right\}\\
+    G'         &= \{\theta\mapsto\RZ(\theta)_{\{0,1,2,3,4,5,6,7\}}\}\\
+    P          &= \left\langle
+                    \RZ(\tfrac\pi 2)_0,
+                    \RX(\tfrac\pi 2)_0,
+                    \RZ(-\tfrac\pi 2)_1,
+                    \RX(\tfrac\pi 2)_1
+                    \CZ_{01},
+                    \RZ(-\tfrac \pi 2)_0,
+                    \RX(-\tfrac \pi 2)_1,
+                    \RZ(\tfrac\pi 2)_1,
+                    \Halt{}
+                  \right\rangle\\
+    \kappa     &= 1.
+\end{align*}
+We of course would continue to transition this machine until it reaches a \Halt{}\footnote{Recall that \Halt{} induces the state transition
+\begin{displaymath}
+(\ket{\Psi}, C, \kappa) \to (\ket{\Psi}, C, \kappa),
+\end{displaymath}
+which is to say that the machine does not continue execution, since $\kappa$ does not change.}. Let's write this idea of ``running a machine until it \Halt{}s'' with the function $\Run{}$. So, if you'll take my word for it, $\Run{M}$ is
+\begin{align*}
+    \ket{\Psi} &= \tfrac{1}{\sqrt{2}}\left(\ket{00000000}+\ket{00000011}\right)\\
+    C,G,G',P   &= \cdots\\
+    \kappa     &= 8.
+\end{align*}
+
+Given this is how we model computation, we are prepared to state another kind of compilation problem in the context of a QAM. Roughly speaking, we want to convert one QAM into another one with a different set of gates $G, G'$, roughly having otherwise equivalent semantics. Ultimately, this gives rise to the following problem:
+\begin{problem}[The Weak Compilation Problem\footnote{This statement of the problem is actually not entirely robust. What does non-determinism mean, say with a measurement? How do we cope with it? In order to answer these questions, and consequently make this problem statement more robust, we would need to provide \emph{formal operational semantics} to the quantum abstract machine, so that we can reason about the equivalence of the non-determinism of quantum mechanics. This also extends to reasoning about programs that have non-linear control flow, e.g., loops. Despite its fragility, however, it'll still serve useful for reasoning about different compilation heuristics.}]
+Let \[M_{\textrm{source}} := (\ket{\Psi}, C, G_{\textrm{source}}, G'_{\textrm{source}}, P_{\textrm{source}}, \kappa)\] and \[M_{\textrm{target}}(x) := (\ket{\Psi}, C, G_{\textrm{target}}, G'_{\textrm{target}}, x, \kappa)\] both be QAMs. Also let
+\begin{displaymath}
+M^*_{\textrm{source}} := \Run M_{\textrm{source}}\qquad\text{and}\qquad
+M^*_{\textrm{target}}(x) := \Run M_{\textrm{target}}(x)
+\end{displaymath}
+whose quantum states are $\ket{\Psi^*_{\textrm{source}}}$ and $\ket{\Psi^*_{\textrm{target}}(x)}$ respectively. Then for an arbitrary but fixed $\epsilon>0$, find a program $x$ such that the respective classical states are identical and
+\begin{displaymath}
+\left\Vert\ket{\Psi^*_{\textrm{src}}} - \ket{\Psi^*_{\textrm{target}}(x)}\right\Vert < \epsilon.
+\end{displaymath}
+\end{problem}
+We can see that this problem is a lot more relaxed than the Strong Compilation Problem. In particular, not only do we have to compile for \emph{just} the specific state of the QAM, we also (possibly!) get entire families of parametric gates at our disposal. Both of these facts will prove to be helpful in compilation. Note that we could strengthen the conditions of this problem to revert it to the Strong Compilation Problem by universally quantifying over all $\Ket{\Psi}$ and forcing $G'=\emptyset$.

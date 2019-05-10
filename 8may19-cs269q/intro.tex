@@ -1,0 +1,19 @@
+\section{Introduction}
+On the face of it, ``compilation'' is a very simple idea. I, a programmer, want to write my programs as easily as possible. My stubborn computer, however, only executes a very low-level machine code. Regardless of whether the computer is classical, quantum, or otherwise, a program called a \emph{compiler} translates what I've written into something that can be run.
+
+Most programming language ecosystems, even notionally ``interpreted'' languages, have some sort of compiler. The \verb|cpython| implementation of Python, for instance, has a so-called \emph{bytecode compiler}, that translates the Python into a linear sequence of instructions to be run on a special machine made out of software called the Python interpreter.
+
+More familiar compiled languages, like C or Fortran, generally require the explicit use of a compiler. You use something like \verb|gcc| to translate the C code into machine code your computer runs natively.
+
+I'd like to share a little bit about compilers for quantum programming languages. Very excitingly, in the world of quantum software engineering, we are seeing compilers slowly moving the goal posts of quantum advantage closer to us. Industrial-strength quantum compilers are relatively new, but are paying great dividends in our ability to both write and run code on quantum computers. I am one of the authors of \verb|quilc|---Rigetti's portable, open-source\footnote{\url{https://github.com/rigetti/quilc}}, optimizing, and fully automatic compiler for quantum computation. It has become an essential element of our software development kit for all of the reasons described hitherto.
+
+Compilation of quantum programs serves two critical roles. First, it allows us as programmers express programs with a broader set of primitives, since quantum computers expose only a limited set of operations. Second, compilation provides means for optimizing the program, generally making the program shorter or make use or more efficient operations.
+
+Optimizing compilers for \emph{classical} programs are merely a convenience. An optimized classical program may run in less time or consume less memory. This, in turn, means that I, the programmer, have to wait less, or use a less expensive computer, in order to accomplish the task I set out to do with the classical computer. The optimization (usually) does not affect the correctness or accuracy of the program.
+
+However, in the case of quantum programs, optimization serves a much more important role outside of providing convenience. While a quantum computer is running, it \emph{decoheres} due to natural effects, which causes the machine to produce incorrect results with higher probability over time. For superconducting qubit processors, there's an associated measure for this decoherence, called the $T_1$ and $T_2$ times. Roughly speaking, these times put a bound on the amount of time a program can run before it produces bad results more than $50\%$ of the time. Currently, $T_1$ times sit around $1$ to $100\,\mu\mathrm{s}$.
+
+I won't delve into the details as to \emph{why} this time limit exists, except to say one of the top areas of research is how to build machines that ever increase this limit. Since the development of the first superconducting qubits, this time has been improved exponentially, for a quantum-Moore's-like law.
+
+Anyway, a compiler has the role of optimizing your program, to potentially take a long program and make it shorter, giving the programmer more freedom and certainty that their program will run as best it can. We are going to first look at the problem of compilation through a very ``pure'', mathematical lens for which theorems about their performance exist.
+
